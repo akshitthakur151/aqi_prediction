@@ -30,7 +30,7 @@ setup(
         "numpy>=1.23.0",
         "pandas>=1.5.0",
         "scikit-learn>=1.2.0",
-        "tensorflow>=2.12.0",
+        "xgboost>=2.0.0",
         "fastapi>=0.100.0",
         "streamlit>=1.28.0",
     ],
