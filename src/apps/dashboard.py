@@ -6,6 +6,44 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
+# ── Load states and cities data ──────────────────────────────────────────────
+@st.cache_data
+def load_states_cities():
+    """Load all states and cities from the data"""
+    try:
+        df = pd.read_csv("data/aqi_data.csv")
+        states = sorted(df['state'].unique().tolist())
+        # Get all cities from dataset
+        all_cities = sorted(df['city'].unique().tolist())
+        # Create state-city mapping
+        state_city_map = {}
+        for state in states:
+            cities = sorted(df[df['state'] == state]['city'].unique().tolist())
+            state_city_map[state] = cities
+        return states, all_cities, state_city_map
+    except Exception as e:
+        # Fallback to default states and cities
+        states = ["Delhi", "Maharashtra", "Karnataka", "Tamil Nadu", "Andhra Pradesh", 
+                  "Telangana", "Gujarat", "Rajasthan", "Punjab", "Haryana", 
+                  "Uttar Pradesh", "Bihar", "Odisha", "Jharkhand", "Madhya Pradesh", 
+                  "Chhattisgarh", "West Bengal", "Assam", "Kerala", "Goa", 
+                  "Himachal Pradesh", "Uttarakhand", "Jammu & Kashmir", "Ladakh", 
+                  "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Sikkim", "Tripura",
+                  "Arunachal Pradesh"]
+        all_cities = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Hyderabad", 
+                      "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Lucknow",
+                      "Chandigarh", "Indore", "Bhopal", "Coimbatore", "Visakhapatnam"]
+        state_city_map = {
+            "Delhi": ["Delhi", "New Delhi"],
+            "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Aurangabad"],
+            "Karnataka": ["Bangalore", "Mysore", "Belgaum"],
+            "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
+            "Other": ["Other"]
+        }
+        return states, all_cities, state_city_map
+
+states_list, all_cities_list, state_city_map = load_states_cities()
+
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AQI Predictor – India",
@@ -255,12 +293,53 @@ with tab_predict:
             st.divider()
             st.subheader("Location (for ML model)")
             lc1, lc2 = st.columns(2)
+            
+            # Initialize session state for state and city selection
+            if "selected_state" not in st.session_state:
+                st.session_state.selected_state = "Delhi"
+            if "selected_city" not in st.session_state:
+                st.session_state.selected_city = None
+            
             with lc1:
-                state = st.text_input("State", "Delhi")
+                # State selection - triggers dynamic city update
+                state = st.selectbox(
+                    "📍 Select State",
+                    states_list,
+                    index=states_list.index(st.session_state.selected_state) if st.session_state.selected_state in states_list else 0,
+                    help="Choose a state from the list",
+                    key="state_select_main"
+                )
+                # Update session state when state changes
+                st.session_state.selected_state = state
+                
                 lat   = st.number_input("Latitude",  -90.0, 90.0, 28.6, format="%.4f")
+            
             with lc2:
-                city  = st.text_input("City", "Delhi")
+                # Get cities ONLY for the selected state (DYNAMIC)
+                cities_for_state = sorted(state_city_map.get(state, ["Other"]))
+                
+                # Set default city if not set or if it's not in current state's cities
+                if st.session_state.selected_city is None or st.session_state.selected_city not in cities_for_state:
+                    default_city_index = 0
+                    st.session_state.selected_city = cities_for_state[0] if cities_for_state else "Other"
+                else:
+                    default_city_index = cities_for_state.index(st.session_state.selected_city)
+                
+                # City selection - DYNAMICALLY populated from state's cities
+                city = st.selectbox(
+                    "🏙️ Select City",
+                    cities_for_state,
+                    index=default_city_index,
+                    help=f"Cities in {state} with data ({len(cities_for_state)} available)",
+                    key="city_select_main"
+                )
+                # Update session state when city changes
+                st.session_state.selected_city = city
+                
                 lon   = st.number_input("Longitude", -180.0, 180.0, 77.2, format="%.4f")
+            
+            # Show all cities available in selected state
+            st.caption(f"📋 All cities in {state}: {', '.join(cities_for_state)}")
         else:
             state = "Delhi"; city = "Delhi"; lat = 28.6; lon = 77.2
 
